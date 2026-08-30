@@ -1,0 +1,22 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+wethrive:
+  security:
+    registration-mode: ${REGISTRATION_MODE:INVITE_ONLY}
+    secure-cookies: true
+
+server:
+  error:
+    include-message: never
+    include-stacktrace: never
+
+springdoc:
+  api-docs:
+    enabled: ${OPENAPI_ENABLED:false}
+  swagger-ui:
+    enabled: ${SWAGGER_UI_ENABLED:false}

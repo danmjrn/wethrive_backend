@@ -1,0 +1,118 @@
+spring:
+  application:
+    name: ${APP_NAME:WeThrive}
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/wethrive}
+    username: ${POSTGRES_USER:wethrive}
+    password: ${POSTGRES_PASSWORD:wethrive_dev_only}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: 2
+      connection-timeout: 10000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+  flyway:
+    enabled: true
+  threads:
+    virtual:
+      enabled: true
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:25}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+  mvc:
+    problemdetails:
+      enabled: false
+
+server:
+  port: ${SERVER_PORT:8080}
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
+  shutdown: graceful
+  servlet:
+    session:
+      cookie:
+        secure: ${COOKIE_SECURE:false}
+
+wethrive:
+  branding:
+    name: ${APP_NAME:WeThrive}
+    short-name: ${APP_SHORT_NAME:WeThrive}
+    tagline: ${APP_TAGLINE:Plan together. Grow together. Thrive together.}
+    host: ${APP_HOST:wethrive.shapeit.solutions}
+    base-url: ${APP_BASE_URL:http://localhost:3000}
+    default-currency: ${DEFAULT_CURRENCY:ZAR}
+    default-locale: ${DEFAULT_LOCALE:en-ZA}
+    default-time-zone: ${DEFAULT_TIME_ZONE:Africa/Johannesburg}
+    parent-company: ${PARENT_COMPANY_NAME:Shape It Solutions}
+    parent-url: ${PARENT_COMPANY_URL:https://shapeit.solutions}
+  security:
+    registration-mode: ${REGISTRATION_MODE:OPEN}
+    secure-cookies: ${COOKIE_SECURE:false}
+    same-site: ${COOKIE_SAME_SITE:Lax}
+    access-session-ttl: ${ACCESS_SESSION_TTL:PT15M}
+    refresh-session-ttl: ${REFRESH_SESSION_TTL:P30D}
+    bootstrap-token: ${APP_BOOTSTRAP_TOKEN:}
+    expose-account-tokens: ${EXPOSE_ACCOUNT_TOKENS:false}
+    offline-signing-private-key: ${OFFLINE_SIGNING_PRIVATE_KEY:}
+    offline-verification-public-key: ${OFFLINE_VERIFICATION_PUBLIC_KEY:}
+    offline-key-id: ${OFFLINE_KEY_ID:offline-v1}
+    subscription-encryption-key: ${PUSH_ENCRYPTION_KEY:development-push-secret-key-32bytes}
+    trusted-proxy-cidrs: ${TRUSTED_PROXY_CIDRS:127.0.0.1/32,::1/128,172.16.0.0/12}
+    auth-rate-limit-per-minute: ${AUTH_RATE_LIMIT_PER_MINUTE:10}
+    api-rate-limit-per-minute: ${API_RATE_LIMIT_PER_MINUTE:300}
+    max-api-request-bytes: ${MAX_API_REQUEST_BYTES:8388608}
+  offline:
+    grant-days: ${OFFLINE_GRANT_DAYS:30}
+  notifications:
+    web-push-enabled: ${WEB_PUSH_ENABLED:false}
+    vapid-public-key: ${VAPID_PUBLIC_KEY:}
+    vapid-private-key: ${VAPID_PRIVATE_KEY:}
+    vapid-subject: ${VAPID_SUBJECT:mailto:admin@shapeit.solutions}
+    mail-from: ${MAIL_FROM:}
+  reminders:
+    scheduler-enabled: ${REMINDER_SCHEDULER_ENABLED:true}
+    scheduler-delay: ${REMINDER_SCHEDULER_DELAY:PT1M}
+    batch-size: ${REMINDER_SCHEDULER_BATCH_SIZE:100}
+
+management:
+  health:
+    mail:
+      # Local/offline development intentionally has no SMTP server. Keep the
+      # aggregate readiness endpoint useful there, while production enables
+      # both startup and ongoing mail checks through MAIL_TEST_CONNECTION.
+      enabled: ${MAIL_HEALTH_ENABLED:${SPRING_MAIL_TEST_CONNECTION:false}}
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /api/v1/openapi
+  swagger-ui:
+    path: /api/v1/docs
+    csrf:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    solutions.shapeit.wethrive: INFO
+  pattern:
+    level: "%5p [correlationId:%X{correlationId:-}]"
