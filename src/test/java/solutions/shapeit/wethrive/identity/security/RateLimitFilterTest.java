@@ -50,4 +50,18 @@ class RateLimitFilterTest {
         assertThat(response.getContentType()).startsWith("application/json");
         assertThat(response.getContentAsString()).doesNotContain("198.51.100.8");
     }
+
+    @Test
+    void appInvitationMailAndTokenMutationsShareTheAuthenticationLimit() throws Exception {
+        RateLimitFilter fixed = new RateLimitFilter(
+                Clock.fixed(Instant.parse("2026-07-22T12:00:00Z"), ZoneOffset.UTC), TestProperties.create(2, 300));
+        int index = 0;
+        for (String route : java.util.List.of("/api/v1/admin/invitations", "/api/v1/application-invitations/accept", "/api/v1/application-invitations/decline")) {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", route);
+            request.setRemoteAddr("198.51.100.8");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            fixed.doFilterInternal(request, response, new MockFilterChain());
+            assertThat(response.getStatus()).isEqualTo(++index <= 2 ? 200 : 429);
+        }
+    }
 }

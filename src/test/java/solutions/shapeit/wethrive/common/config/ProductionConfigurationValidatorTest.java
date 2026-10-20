@@ -19,6 +19,62 @@ class ProductionConfigurationValidatorTest {
     }
 
     @Test
+    void acceptsGraphMailWithoutSmtpCredentialsOrSmtpProbes() {
+        var graph = new ApplicationProperties.Graph("11111111-2222-3333-4444-555555555555",
+                "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "S".repeat(32), "wethrive@example.com", null, null);
+        assertThatCode(() -> new ProductionConfigurationValidator(graphProperties(graph), graphEnvironment()))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsMissingGraphCredentialsUnboundedTimeoutsAndSmtpProbes() {
+        var graph = new ApplicationProperties.Graph("11111111-2222-3333-4444-555555555555",
+                "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "", "wethrive@example.com", null, null);
+        assertThatThrownBy(() -> new ProductionConfigurationValidator(graphProperties(graph), graphEnvironment()))
+                .hasMessageContaining("MAIL_GRAPH_CLIENT_SECRET");
+        var valid = new ApplicationProperties.Graph(graph.tenantId(), graph.clientId(), "S".repeat(32), graph.sender(), null, null);
+        assertThatThrownBy(() -> new ProductionConfigurationValidator(graphProperties(valid),
+                graphEnvironment().withProperty("MAIL_TEST_CONNECTION", "true")))
+                .hasMessageContaining("MAIL_TEST_CONNECTION");
+        assertThatThrownBy(() -> new ProductionConfigurationValidator(graphProperties(valid),
+                graphEnvironment().withProperty("MAIL_HEALTH_ENABLED", "true")))
+                .hasMessageContaining("MAIL_HEALTH_ENABLED");
+        assertThatThrownBy(() -> new ProductionConfigurationValidator(graphProperties(valid),
+                graphEnvironment().withProperty("SPRING_MAIL_TEST_CONNECTION", "true")))
+                .hasMessageContaining("SPRING_MAIL_TEST_CONNECTION");
+        assertThatThrownBy(() -> new ProductionConfigurationValidator(graphProperties(valid),
+                graphEnvironment().withProperty("management.health.mail.enabled", "true")))
+                .hasMessageContaining("MAIL_HEALTH_ENABLED");
+        var excessiveTimeout = new ApplicationProperties.Graph(valid.tenantId(), valid.clientId(), valid.clientSecret(), valid.sender(),
+                Duration.ofSeconds(5), Duration.ofMinutes(2));
+        assertThatThrownBy(() -> new ProductionConfigurationValidator(graphProperties(excessiveTimeout), graphEnvironment()))
+                .hasMessageContaining("MAIL_GRAPH_REQUEST_TIMEOUT");
+    }
+
+    @Test
+    void requiresTheGraphAndFromMailboxToMatch() {
+        var graph = new ApplicationProperties.Graph("11111111-2222-3333-4444-555555555555",
+                "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "S".repeat(32), "other@example.com", null, null);
+        assertThatThrownBy(() -> new ProductionConfigurationValidator(graphProperties(graph), graphEnvironment()))
+                .hasMessageContaining("MAIL_FROM must identify the same mailbox");
+    }
+
+    private ApplicationProperties graphProperties(ApplicationProperties.Graph graph) {
+        var base = properties();
+        var notifications = base.notifications();
+        return new ApplicationProperties(base.branding(), base.security(), base.offline(),
+                new ApplicationProperties.Notifications(notifications.webPushEnabled(), notifications.vapidPublicKey(),
+                        notifications.vapidPrivateKey(), notifications.vapidSubject(), "WeThrive <wethrive@example.com>", "GRAPH", graph),
+                base.reminders());
+    }
+
+    private MockEnvironment graphEnvironment() {
+        return environment().withProperty("MAIL_TEST_CONNECTION", "false").withProperty("MAIL_HEALTH_ENABLED", "false")
+                .withProperty("MAIL_HOST", "").withProperty("spring.mail.host", "")
+                .withProperty("MAIL_USERNAME", "").withProperty("MAIL_PASSWORD", "");
+    }
+
+    @Test
     void rejectsDevelopmentOriginsAndMailServices() {
         var localOrigin = properties("localhost", "https://localhost", true, "Lax", "INVITE_ONLY");
         assertThatThrownBy(() -> new ProductionConfigurationValidator(localOrigin, environment()))

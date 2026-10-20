@@ -36,5 +36,8 @@ public class AppUser extends BaseEntity {
     @Column(nullable = false)
     private boolean emailVerified;
 
+    @Column(nullable = false, length = 20)
+    private String applicationRole = "USER";
+
     private Instant passwordChangedAt;
 }

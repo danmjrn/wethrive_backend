@@ -7,6 +7,8 @@ import java.time.ZoneId;
 import java.util.Currency;
 import java.util.Locale;
 import java.util.List;
+import jakarta.mail.internet.AddressException;
+import jakarta.mail.internet.InternetAddress;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
@@ -85,12 +87,49 @@ public class ProductionConfigurationValidator {
             throw new IllegalStateException("MAX_API_REQUEST_BYTES must be between 65536 and 16777216 in production");
         }
 
+        validateMail(properties.notifications(), environment);
+    }
+
+    private void validateMail(ApplicationProperties.Notifications notifications, Environment environment) {
+        if (blank(notifications.mailFrom())) {
+            throw new IllegalStateException("MAIL_FROM is required in production so account and invitation links can be delivered");
+        }
+        if ("GRAPH".equals(notifications.mailProvider())) {
+            var graph = notifications.graph();
+            requireUuid("MAIL_GRAPH_TENANT_ID", graph.tenantId());
+            requireUuid("MAIL_GRAPH_CLIENT_ID", graph.clientId());
+            requireCredential("MAIL_GRAPH_CLIENT_SECRET", graph.clientSecret(), 16);
+            if (blank(graph.sender()) || !graph.sender().matches("[^\\s<>@/]+@[^\\s<>@/]+\\.[^\\s<>@/]+")) {
+                throw new IllegalStateException("MAIL_GRAPH_SENDER must be a mailbox email address in production");
+            }
+            try {
+                InternetAddress[] from = InternetAddress.parse(notifications.mailFrom(), true);
+                if (from.length != 1 || !graph.sender().equalsIgnoreCase(from[0].getAddress())) throw new AddressException();
+                from[0].validate();
+            } catch (AddressException ex) {
+                throw new IllegalStateException("MAIL_FROM must identify the same mailbox as MAIL_GRAPH_SENDER when MAIL_PROVIDER is GRAPH");
+            }
+            requireDuration("MAIL_GRAPH_CONNECT_TIMEOUT", graph.connectTimeout(), Duration.ofSeconds(1), Duration.ofSeconds(30));
+            requireDuration("MAIL_GRAPH_REQUEST_TIMEOUT", graph.requestTimeout(), Duration.ofSeconds(1), Duration.ofSeconds(60));
+            requireBoolean(environment, "MAIL_TEST_CONNECTION", false);
+            boolean springSmtpTest = booleanProperty(environment, "spring.mail.test-connection",
+                    booleanProperty(environment, "SPRING_MAIL_TEST_CONNECTION", false));
+            if (springSmtpTest) {
+                throw new IllegalStateException("SPRING_MAIL_TEST_CONNECTION must be false when MAIL_PROVIDER is GRAPH because it tests SMTP");
+            }
+            boolean smtpHealth = booleanProperty(environment, "management.health.mail.enabled",
+                    booleanProperty(environment, "MAIL_HEALTH_ENABLED", springSmtpTest));
+            if (smtpHealth) {
+                throw new IllegalStateException("MAIL_HEALTH_ENABLED must be false when MAIL_PROVIDER is GRAPH because it probes SMTP");
+            }
+            return;
+        }
+        if (!"SMTP".equals(notifications.mailProvider())) {
+            throw new IllegalStateException("MAIL_PROVIDER must be SMTP or GRAPH");
+        }
         String mailHost = first(environment.getProperty("spring.mail.host"), environment.getProperty("MAIL_HOST"));
         if (blank(mailHost) || containsDevelopmentHost(mailHost) || "mailpit".equalsIgnoreCase(mailHost)) {
             throw new IllegalStateException("MAIL_HOST must identify a non-development SMTP service in production");
-        }
-        if (blank(properties.notifications().mailFrom())) {
-            throw new IllegalStateException("MAIL_HOST and MAIL_FROM are required in production so account and invitation links can be delivered");
         }
         requireBoolean(environment, "MAIL_STARTTLS_ENABLE", true);
         requireBoolean(environment, "MAIL_STARTTLS_REQUIRED", true);
@@ -100,6 +139,12 @@ public class ProductionConfigurationValidator {
                 throw new IllegalStateException("MAIL_USERNAME and MAIL_PASSWORD are required when MAIL_SMTP_AUTH is true");
             }
             requireCredential("MAIL_PASSWORD", environment.getProperty("MAIL_PASSWORD"), 16);
+        }
+    }
+
+    private void requireUuid(String name, String value) {
+        if (value == null || !value.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")) {
+            throw new IllegalStateException(name + " must be a UUID in production");
         }
     }
 

@@ -35,6 +35,7 @@ import solutions.shapeit.wethrive.identity.dto.AuthDtos.SessionResponse;
 import solutions.shapeit.wethrive.identity.dto.AuthDtos.TokenRequest;
 import solutions.shapeit.wethrive.identity.dto.AuthDtos.UserResponse;
 import solutions.shapeit.wethrive.identity.dto.AuthDtos.UpdateProfileRequest;
+import solutions.shapeit.wethrive.identity.dto.AuthDtos.SetupStatusResponse;
 import solutions.shapeit.wethrive.identity.security.SessionAuthenticationFilter;
 import solutions.shapeit.wethrive.identity.service.AuthService;
 import solutions.shapeit.wethrive.identity.service.CurrentUser;
@@ -53,6 +54,7 @@ public class AuthController {
     }
 
     @GetMapping("/csrf") public Map<String, String> csrf(CsrfToken token) { return Map.of("headerName", token.getHeaderName(), "token", token.getToken()); }
+    @GetMapping("/setup-status") public SetupStatusResponse setupStatus() { return service.setupStatus(); }
     @PostMapping("/register") @ResponseStatus(HttpStatus.CREATED)
     public RegistrationResponse register(@Valid @RequestBody RegisterRequest request) { return service.register(request); }
     @PostMapping("/bootstrap") @ResponseStatus(HttpStatus.CREATED)

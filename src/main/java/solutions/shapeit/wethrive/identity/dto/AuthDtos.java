@@ -13,7 +13,12 @@ public final class AuthDtos {
     public record RegisterRequest(@Email @NotBlank @Size(max = 320) String email,
                                   @NotBlank @Size(min = 12, max = 72) String password,
                                   @NotBlank @Size(max = 120) String displayName,
-                                  @Size(max = 4096) String invitationToken) {}
+                                  @Size(max = 4096) String invitationToken,
+                                  @Size(max = 4096) String applicationInvitationToken) {
+        public RegisterRequest(String email, String password, String displayName, String invitationToken) {
+            this(email, password, displayName, invitationToken, null);
+        }
+    }
     public record BootstrapRequest(@Email @NotBlank @Size(max = 320) String email,
                                    @NotBlank @Size(min = 12, max = 72) String password,
                                    @NotBlank @Size(max = 120) String displayName,
@@ -33,7 +38,11 @@ public final class AuthDtos {
     public record UpdateProfileRequest(@NotBlank @Size(max = 120) String displayName,
                                        @Size(max = 500) String avatarReference, @NotNull long version) {}
     public record UserResponse(UUID id, String email, String displayName, String avatarReference,
-                               boolean emailVerified, Instant createdAt, long version) {}
+                               boolean emailVerified, Instant createdAt, long version, String applicationRole) {}
+    public record SetupStatusResponse(boolean initialized, boolean bootstrapAvailable, String registrationMode) {}
+    public record ApplicationInvitationRequest(@Email @NotBlank @Size(max = 320) String email) {}
+    public record ApplicationInvitationResponse(UUID id, String email, Instant createdAt, Instant expiresAt,
+                                                Instant acceptedAt, Instant revokedAt, String token) {}
     public record RegistrationResponse(String message, String verificationToken) {}
     public record AuthResponse(UserResponse user, UUID sessionId, UUID deviceId, Instant accessExpiresAt, Instant refreshExpiresAt) {}
     public record SessionResponse(UUID id, UUID deviceId, String deviceName, Instant issuedAt,

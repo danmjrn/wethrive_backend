@@ -24,6 +24,8 @@ import solutions.shapeit.wethrive.identity.repository.AccountTokenRepository;
 import solutions.shapeit.wethrive.identity.repository.AppUserRepository;
 import solutions.shapeit.wethrive.identity.repository.UserSessionRepository;
 import solutions.shapeit.wethrive.identity.repository.UserSettingsRepository;
+import solutions.shapeit.wethrive.identity.repository.ApplicationInitializationRepository;
+import solutions.shapeit.wethrive.identity.entity.ApplicationInitialization;
 import solutions.shapeit.wethrive.notification.repository.PushSubscriptionRepository;
 import solutions.shapeit.wethrive.reminder.repository.ReminderPreferenceRepository;
 import solutions.shapeit.wethrive.space.repository.SpaceMembershipRepository;
@@ -60,7 +62,7 @@ class AuthRegistrationPrivacyTest {
                 mock(SecureTokens.class),
                 passwords,
                 TestProperties.create(),
-                Clock.systemUTC());
+                Clock.systemUTC(), initializedRepository(), mock(ApplicationInvitationService.class));
 
         var response = service.register(new RegisterRequest(
                 "Known@Example.Test", "StrongPassword123", "Known Person", null));
@@ -99,7 +101,7 @@ class AuthRegistrationPrivacyTest {
                 mock(SecureTokens.class),
                 passwords,
                 TestProperties.create(),
-                Clock.systemUTC());
+                Clock.systemUTC(), initializedRepository(), mock(ApplicationInvitationService.class));
 
         assertThatThrownBy(() -> service.login(new LoginRequest(
                 "Missing@Example.Test", "WrongPassword123", null, "Browser", null, null), "test-agent"))
@@ -109,5 +111,15 @@ class AuthRegistrationPrivacyTest {
         ArgumentCaptor<String> dummyHash = ArgumentCaptor.forClass(String.class);
         verify(passwords).matches(eq("WrongPassword123"), dummyHash.capture());
         assertThat(dummyHash.getValue()).startsWith("$2a$12$").hasSize(60);
+    }
+
+    private ApplicationInitializationRepository initializedRepository() {
+        var repository = mock(ApplicationInitializationRepository.class);
+        var state = new ApplicationInitialization();
+        state.setId(1);
+        state.setCompletedAt(java.time.Instant.now());
+        when(repository.lockState()).thenReturn(Optional.of(state));
+        when(repository.findById(1)).thenReturn(Optional.of(state));
+        return repository;
     }
 }

@@ -79,6 +79,14 @@ wethrive:
     vapid-private-key: ${VAPID_PRIVATE_KEY:}
     vapid-subject: ${VAPID_SUBJECT:mailto:admin@shapeit.solutions}
     mail-from: ${MAIL_FROM:}
+    mail-provider: ${MAIL_PROVIDER:SMTP}
+    graph:
+      tenant-id: ${MAIL_GRAPH_TENANT_ID:}
+      client-id: ${MAIL_GRAPH_CLIENT_ID:}
+      client-secret: ${MAIL_GRAPH_CLIENT_SECRET:}
+      sender: ${MAIL_GRAPH_SENDER:}
+      connect-timeout: ${MAIL_GRAPH_CONNECT_TIMEOUT:PT5S}
+      request-timeout: ${MAIL_GRAPH_REQUEST_TIMEOUT:PT15S}
   reminders:
     scheduler-enabled: ${REMINDER_SCHEDULER_ENABLED:true}
     scheduler-delay: ${REMINDER_SCHEDULER_DELAY:PT1M}
@@ -87,9 +95,8 @@ wethrive:
 management:
   health:
     mail:
-      # Local/offline development intentionally has no SMTP server. Keep the
-      # aggregate readiness endpoint useful there, while production enables
-      # both startup and ongoing mail checks through MAIL_TEST_CONNECTION.
+      # This probes SMTP only. Set false for MAIL_PROVIDER=GRAPH; Graph validates
+      # configuration at startup and contacts Microsoft only when sending mail.
       enabled: ${MAIL_HEALTH_ENABLED:${SPRING_MAIL_TEST_CONNECTION:false}}
   endpoints:
     web:

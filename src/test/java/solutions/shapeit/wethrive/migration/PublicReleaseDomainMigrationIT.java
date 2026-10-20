@@ -46,8 +46,8 @@ class PublicReleaseDomainMigrationIT {
         var result = latest.migrate();
 
         assertThat(result.success).isTrue();
-        assertThat(result.migrationsExecuted).isEqualTo(2);
-        assertThat(result.targetSchemaVersion).hasToString("8");
+        assertThat(result.migrationsExecuted).isEqualTo(3);
+        assertThat(result.targetSchemaVersion).hasToString("9");
 
         try (Connection connection = connection(); var statement = connection.createStatement()) {
             assertThat(referenceCategoryNames(statement)).containsExactlyElementsOf(

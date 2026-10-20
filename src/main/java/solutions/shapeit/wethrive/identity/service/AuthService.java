@@ -33,6 +33,8 @@ import solutions.shapeit.wethrive.identity.repository.AccountTokenRepository;
 import solutions.shapeit.wethrive.identity.repository.AppUserRepository;
 import solutions.shapeit.wethrive.identity.repository.UserSessionRepository;
 import solutions.shapeit.wethrive.identity.repository.UserSettingsRepository;
+import solutions.shapeit.wethrive.identity.repository.ApplicationInitializationRepository;
+import solutions.shapeit.wethrive.identity.dto.AuthDtos.SetupStatusResponse;
 import solutions.shapeit.wethrive.space.service.InvitationService;
 import solutions.shapeit.wethrive.space.service.SpaceService;
 import solutions.shapeit.wethrive.space.repository.SpaceRepository;
@@ -75,6 +77,8 @@ public class AuthService {
     private final PasswordEncoder passwords;
     private final ApplicationProperties properties;
     private final Clock clock;
+    private final ApplicationInitializationRepository initialization;
+    private final ApplicationInvitationService applicationInvitations;
 
     public AuthService(AppUserRepository users, UserSettingsRepository settings, UserSessionRepository sessions,
                        AccountTokenRepository accountTokens, RefreshTokenRotationService refreshTokenRotation,
@@ -84,7 +88,8 @@ public class AuthService {
                        SpaceMembershipRepository memberships, ObjectProvider<DomainChangeRecorder> changes,
                        SpaceService spaceService,
                        InvitationService invitationService, AccountNotificationService notifications,
-                       SecureTokens tokens, PasswordEncoder passwords, ApplicationProperties properties, Clock clock) {
+                       SecureTokens tokens, PasswordEncoder passwords, ApplicationProperties properties, Clock clock,
+                       ApplicationInitializationRepository initialization, ApplicationInvitationService applicationInvitations) {
         this.users = users;
         this.settings = settings;
         this.sessions = sessions;
@@ -104,14 +109,19 @@ public class AuthService {
         this.passwords = passwords;
         this.properties = properties;
         this.clock = clock;
+        this.initialization = initialization;
+        this.applicationInvitations = applicationInvitations;
     }
 
     @Transactional
     public RegistrationResponse register(RegisterRequest request) {
+        var setup = initialization.findById(1).orElseThrow(() -> new IllegalStateException("Application initialization state is missing"));
+        if (setup.getCompletedAt() == null) throw new ApiException(HttpStatus.FORBIDDEN, "setup_required", "The application owner must complete setup first");
         String mode = properties.security().registrationMode().toUpperCase(Locale.ROOT);
         if ("CLOSED".equals(mode)) throw new ApiException(HttpStatus.FORBIDDEN, "registration_closed", "Registration is currently closed");
-        if ("INVITE_ONLY".equals(mode) && (request.invitationToken() == null
-                || !invitationService.isUsableForEmail(request.invitationToken(), request.email()))) {
+        boolean applicationInvite = applicationInvitations.isUsableForEmail(request.applicationInvitationToken(), request.email());
+        boolean householdInvite = request.invitationToken() != null && invitationService.isUsableForEmail(request.invitationToken(), request.email());
+        if ("INVITE_ONLY".equals(mode) && !applicationInvite && !householdInvite) {
             throw new ApiException(HttpStatus.FORBIDDEN, "invitation_required", "A valid invitation is required");
         }
         validatePassword(request.password());
@@ -126,21 +136,42 @@ public class AuthService {
         String rawToken = issueAccountToken(user.getId(), AccountTokenType.EMAIL_VERIFICATION, Duration.ofHours(24));
         notifications.sendVerification(user.getEmail(), rawToken);
         if (request.invitationToken() != null) invitationService.acceptForUser(request.invitationToken(), user);
+        if (request.applicationInvitationToken() != null) applicationInvitations.accept(request.applicationInvitationToken(), user);
         return new RegistrationResponse("If registration can be completed, verification instructions will be sent",
                 properties.security().exposeAccountTokens() ? rawToken : null);
     }
 
     @Transactional
     public SessionIssue bootstrap(BootstrapRequest request, String userAgent) {
-        if (users.count() != 0) throw ApiException.conflict("Bootstrap has already been completed");
+        var setup = initialization.lockState().orElseThrow(() -> new IllegalStateException("Application initialization state is missing"));
+        if (setup.getCompletedAt() != null) throw ApiException.conflict("Bootstrap has already been completed");
         if (properties.security().bootstrapToken() == null || properties.security().bootstrapToken().isBlank()
                 || !tokens.constantTimeEquals(properties.security().bootstrapToken(), request.bootstrapToken())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "bootstrap_denied", "Bootstrap credentials are invalid");
         }
         validatePassword(request.password());
-        AppUser user = createUser(request.email(), request.password(), request.displayName(), true);
+        AppUser user = users.findByNormalizedEmailAndDeletedAtIsNull(normalize(request.email())).orElse(null);
+        if (user == null) {
+            user = createUser(request.email(), request.password(), request.displayName(), true);
+        } else {
+            if (!user.isEnabled() || !passwords.matches(request.password(), user.getPasswordHash())) throw invalidCredentials();
+            user.setDisplayName(request.displayName().trim());
+            user.setEmailVerified(true);
+        }
+        user.setApplicationRole("SUPER_ADMIN");
+        users.saveAndFlush(user);
+        setup.setCompletedAt(Instant.now(clock));
+        setup.setOwnerUserId(user.getId());
+        initialization.save(setup);
         LoginRequest login = new LoginRequest(request.email(), request.password(), request.deviceId(), request.deviceName(), null, null);
         return createSession(user, login, userAgent);
+    }
+
+    @Transactional
+    public SetupStatusResponse setupStatus() {
+        boolean initialized = initialization.findById(1).map(state -> state.getCompletedAt() != null).orElse(false);
+        return new SetupStatusResponse(initialized, !initialized && properties.security().bootstrapToken() != null
+                && !properties.security().bootstrapToken().isBlank(), properties.security().registrationMode().toUpperCase(Locale.ROOT));
     }
 
     @Transactional
@@ -292,6 +323,9 @@ public class AuthService {
     public void deleteAccount(UUID userId, String password) {
         AppUser user = requireUser(userId);
         if (!passwords.matches(password, user.getPasswordHash())) throw invalidCredentials();
+        if ("SUPER_ADMIN".equals(user.getApplicationRole())) {
+            throw ApiException.conflict("The application owner cannot delete their account; contact the server operator to transfer ownership safely");
+        }
         if (spaceRepository.existsByOwnerUserIdAndTypeAndDeletedAtIsNull(userId, SpaceType.HOUSEHOLD)) {
             throw ApiException.conflict("Transfer or delete every household space you own before deleting your account");
         }
@@ -452,7 +486,7 @@ public class AuthService {
     private ApiException invalidCredentials() { return new ApiException(HttpStatus.UNAUTHORIZED, "invalid_credentials", "Email or password is incorrect"); }
     private ApiException unauthorized() { return new ApiException(HttpStatus.UNAUTHORIZED, "invalid_session", "The session is invalid or expired"); }
     private UserResponse map(AppUser user) { return new UserResponse(user.getId(), user.getEmail(), user.getDisplayName(),
-            user.getAvatarReference(), user.isEmailVerified(), user.getCreatedAt(), user.getVersion()); }
+            user.getAvatarReference(), user.isEmailVerified(), user.getCreatedAt(), user.getVersion(), user.getApplicationRole()); }
     private AuthResponse map(AppUser user, UserSession session, Device device) {
         return new AuthResponse(map(user), session.getId(), device.getId(), session.getAccessExpiresAt(), session.getExpiresAt());
     }

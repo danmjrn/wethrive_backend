@@ -64,7 +64,7 @@ public class SecurityConfiguration {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/bootstrap",
                                 "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password", "/api/v1/auth/verify-email",
                                 "/api/v1/auth/refresh").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/csrf", "/api/v1/auth/setup-status").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/devices/offline-verification-key").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions

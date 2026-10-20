@@ -3,6 +3,7 @@ package solutions.shapeit.wethrive.identity.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -15,10 +16,19 @@ public class AccountNotificationService {
     private static final Logger log = LoggerFactory.getLogger(AccountNotificationService.class);
     private final ObjectProvider<JavaMailSender> mailSender;
     private final ApplicationProperties properties;
+    private final MicrosoftGraphMailSender graphSender;
 
+    @Autowired
     public AccountNotificationService(ObjectProvider<JavaMailSender> mailSender, ApplicationProperties properties) {
+        this(mailSender, properties, "GRAPH".equals(properties.notifications().mailProvider())
+                ? new MicrosoftGraphMailSender(properties.notifications().graph()) : null);
+    }
+
+    AccountNotificationService(ObjectProvider<JavaMailSender> mailSender, ApplicationProperties properties,
+                               MicrosoftGraphMailSender graphSender) {
         this.mailSender = mailSender;
         this.properties = properties;
+        this.graphSender = graphSender;
     }
 
     public void sendVerification(String email, String token) {
@@ -36,6 +46,11 @@ public class AccountNotificationService {
                 "Accept your invitation: " + actionUrl("invitationToken", token), "invitation", true);
     }
 
+    public void sendApplicationInvitation(String email, String token) {
+        send(email, "You have been invited to " + properties.branding().name(),
+                "Create your account: " + actionUrl("applicationInvitationToken", token), "application_invitation", true);
+    }
+
     private String actionUrl(String action, String token) {
         String base = properties.branding().baseUrl();
         while (base.endsWith("/")) base = base.substring(0, base.length() - 1);
@@ -44,13 +59,16 @@ public class AccountNotificationService {
     }
 
     private void send(String email, String subject, String text, String type, boolean required) {
-        JavaMailSender sender = mailSender.getIfAvailable();
-        if (sender == null) {
-            log.warn("account_email_not_sent reason=mail_not_configured type={}", type);
-            if (required && !properties.security().exposeAccountTokens()) throw unavailable();
-            return;
-        }
         try {
+            if ("GRAPH".equals(properties.notifications().mailProvider())) {
+                graphSender.send(email, subject, text);
+                return;
+            }
+            if (!"SMTP".equals(properties.notifications().mailProvider())) {
+                throw new IllegalStateException("Unsupported mail provider");
+            }
+            JavaMailSender sender = mailSender.getIfAvailable();
+            if (sender == null) throw new IllegalStateException("SMTP mail is not configured");
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(email);
             if (properties.notifications().mailFrom() != null && !properties.notifications().mailFrom().isBlank()) {

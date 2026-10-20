@@ -39,11 +39,17 @@ class V1ToLatestMigrationIT {
         var result = latest.migrate();
 
         assertThat(result.success).isTrue();
-        assertThat(result.migrationsExecuted).isEqualTo(7);
-        assertThat(result.targetSchemaVersion).hasToString("8");
+        assertThat(result.migrationsExecuted).isEqualTo(8);
+        assertThat(result.targetSchemaVersion).hasToString("9");
 
         try (var connection = connection(); var statement = connection.createStatement()) {
-            assertThat(appliedVersions(statement)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
+            assertThat(appliedVersions(statement)).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9");
+            assertThat(tableExists(statement, "application_initialization")).isTrue();
+            assertThat(tableExists(statement, "application_invitations")).isTrue();
+            try (var owner = statement.executeQuery("select application_role from app_users")) {
+                assertThat(owner.next()).isTrue();
+                assertThat(owner.getString("application_role")).isEqualTo("USER");
+            }
             assertThat(columnExists(statement, "user_settings", "budget_item_view")).isTrue();
             assertThat(columnExists(statement, "user_settings", "palette")).isTrue();
             assertThat(columnExists(statement, "spending_entries", "refund_for_spending_entry_id")).isTrue();

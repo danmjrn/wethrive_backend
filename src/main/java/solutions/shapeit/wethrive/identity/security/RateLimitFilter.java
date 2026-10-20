@@ -44,7 +44,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
         boolean sensitive = request.getRequestURI().matches(".*/auth/(login|register|refresh|forgot-password|reset-password|verify-email|bootstrap).*")
-                || request.getRequestURI().matches(".*/invitations/[^/]+/(accept|decline).*");
+                || request.getRequestURI().matches(".*/invitations/[^/]+/(accept|decline).*")
+                || request.getRequestURI().matches(".*/application-invitations/(accept|decline)")
+                || ("POST".equals(request.getMethod()) && request.getRequestURI().equals("/api/v1/admin/invitations"));
         int limit = sensitive ? authLimit : apiLimit;
         long minute = clock.instant().getEpochSecond() / 60;
         if (windows.size() > 10_000) {
