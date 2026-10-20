@@ -44,7 +44,7 @@ class AuthRefreshConcurrencyIT {
     private static final String OWNER_EMAIL = "owner@example.test";
     private static final String OWNER_PASSWORD = "StrongPassword123";
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18.4-alpine")
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18.6-alpine")
             .withDatabaseName("wethrive_auth").withUsername("wethrive").withPassword("test-password");
 
     @DynamicPropertySource

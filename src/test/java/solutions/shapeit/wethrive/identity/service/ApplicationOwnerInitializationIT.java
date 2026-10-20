@@ -42,7 +42,7 @@ import solutions.shapeit.wethrive.identity.entity.AppUser;
         "wethrive.reminders.scheduler-enabled=false"
 })
 class ApplicationOwnerInitializationIT {
-    @Container static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18.4-alpine")
+    @Container static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18.6-alpine")
             .withDatabaseName("wethrive_owner").withUsername("wethrive").withPassword("test-password");
     @DynamicPropertySource static void database(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);

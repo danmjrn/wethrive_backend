@@ -29,7 +29,7 @@ class PublicReleaseDomainMigrationIT {
     private static final String LEGACY_REFUND = "20000000-0000-0000-0000-000000000011";
 
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18.4-alpine")
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18.6-alpine")
             .withDatabaseName("wethrive_public_release_domain")
             .withUsername("wethrive")
             .withPassword("test-password");

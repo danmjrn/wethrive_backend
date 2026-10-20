@@ -14,7 +14,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 class ReminderScheduleMigrationIT {
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18.4-alpine")
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18.6-alpine")
             .withDatabaseName("wethrive_reminders").withUsername("wethrive").withPassword("test-password");
 
     @Test

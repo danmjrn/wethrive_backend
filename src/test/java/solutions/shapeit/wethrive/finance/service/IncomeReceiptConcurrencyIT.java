@@ -50,7 +50,7 @@ class IncomeReceiptConcurrencyIT {
     private static final String OWNER_PASSWORD = "StrongPassword123";
 
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18.4-alpine")
+    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18.6-alpine")
             .withDatabaseName("wethrive_receipt_concurrency")
             .withUsername("wethrive")
             .withPassword("test-password");

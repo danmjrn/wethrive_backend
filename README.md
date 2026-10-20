@@ -49,6 +49,6 @@ Build the versioned container from this repository with:
 docker build -t wethrive/backend:1.0.0 .
 ```
 
-The integration suite uses PostgreSQL 18.4 through Testcontainers when Docker is available. Unit coverage includes canonical workbook calculations/refunds, ES256 tamper and authorization invalidation, role permissions, proxy-chain handling, settings validation, email fragment secrecy, Excel formula neutralization/numeric dates, and architecture boundaries.
+The integration suite uses PostgreSQL 18.6 through Testcontainers when Docker is available. Unit coverage includes canonical workbook calculations/refunds, ES256 tamper and authorization invalidation, role permissions, proxy-chain handling, settings validation, email fragment secrecy, Excel formula neutralization/numeric dates, and architecture boundaries.
 
 For a direct schema smoke test, start PostgreSQL and run the application with `DATABASE_URL`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`; startup succeeds only after Flyway migration and Hibernate validation both pass.
